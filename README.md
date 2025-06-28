@@ -68,6 +68,23 @@ As a high school student, I had to build this system using only free and open-so
 - **Infrastructure**: Supabase (free tier), Vercel (free tier)
 - **Development**: Next.js, TypeScript, Tailwind CSS
 
+### Current Limitations & Future Potential
+
+**Current Challenges:**
+- **Confidence Issues**: Free models sometimes struggle with complex claims and return inconsistent results
+- **Rate Limits**: Free APIs have restrictions that can affect reliability
+- **Limited Context**: Open-source models have smaller context windows
+- **Accuracy Gaps**: As seen in testing, the system sometimes misses obvious facts (like Trump being current president)
+
+**How Paid APIs Would Transform This:**
+- **OpenAI Integration**: GPT-4's superior reasoning would dramatically improve accuracy and confidence
+- **No Rate Limits**: Uninterrupted service for all users
+- **Better Context Understanding**: Can process longer, more complex evidence
+- **Consistent Performance**: More reliable across different types of claims
+- **Professional Quality**: Results that rival commercial fact-checking services
+
+*The current system proves the concept works - with proper funding for paid APIs, this could become a truly robust platform that serves millions.*
+
 ### The Architecture
 
 ```
