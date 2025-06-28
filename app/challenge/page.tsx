@@ -13,6 +13,7 @@ import { ClaimCard } from "@/components/ClaimCard"
 import { LoadingSpinner } from "@/components/LoadingSpinner"
 import { verifyClaimComprehensive } from "@/lib/verify-claim"
 import { VerificationResult } from "@/lib/verification-pipeline"
+import { VerificationStatus } from "@/lib/verification-types"
 import { TowerControl as GameController, Zap, Award } from "lucide-react"
 
 // Mock game claims for demo purposes
@@ -49,7 +50,7 @@ export default function Challenge() {
       
       // Game logic for "Fool the AI"
       if (activeTab === "foolTheAI") {
-        if (verificationResult.status === "unverified") {
+        if (verificationResult.status === VerificationStatus.UNVERIFIED) {
           setScore(prev => prev + 10)
           setGameFeedback("You fooled the AI! +10 points")
         } else if (verificationResult.confidence < 0.7) {

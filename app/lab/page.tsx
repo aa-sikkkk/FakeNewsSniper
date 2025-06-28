@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ClaimCard } from "@/components/ClaimCard"
 import { LoadingSpinner } from "@/components/LoadingSpinner"
+import { VerificationStatus } from "@/lib/verification-types"
+import { SourceType, ReliabilityLevel } from "@/lib/source-reliability"
 import { Brain, Eye, Zap, ArrowRight, Calendar, BadgeInfo } from "lucide-react"
 
 export default function Lab() {
@@ -18,16 +20,85 @@ export default function Lab() {
   
   // Mock verification result for demo purposes
   const mockResult = {
-    status: "false" as const,
+    claim: "Eating chocolate every day prevents heart disease",
+    status: VerificationStatus.FALSE,
     confidence: 0.82,
     evidence: [
-      "According to multiple scientific studies, there is no evidence that chocolate directly prevents heart disease.",
-      "While some compounds in dark chocolate may have heart-healthy properties, the overall effect is minimal and outweighed by sugar content."
+      {
+        id: "evidence-1",
+        content: "According to multiple scientific studies, there is no evidence that chocolate directly prevents heart disease.",
+        source: {
+          id: "nih",
+          name: "Effects of Cocoa on Cardiovascular Health - NIH",
+          type: SourceType.REFERENCE,
+          reliability: ReliabilityLevel.VERIFIED,
+          url: "https://example.com/source1",
+          lastVerified: new Date(),
+          verificationStatus: VerificationStatus.VERIFIED,
+          categories: ["health", "research"],
+          metadata: {}
+        },
+        timestamp: new Date(),
+        url: "https://example.com/source1",
+        confidence: 0.82,
+        categories: ["health"],
+        metadata: {}
+      },
+      {
+        id: "evidence-2",
+        content: "While some compounds in dark chocolate may have heart-healthy properties, the overall effect is minimal and outweighed by sugar content.",
+        source: {
+          id: "aha",
+          name: "Dietary Guidelines - American Heart Association",
+          type: SourceType.REFERENCE,
+          reliability: ReliabilityLevel.VERIFIED,
+          url: "https://example.com/source2",
+          lastVerified: new Date(),
+          verificationStatus: VerificationStatus.VERIFIED,
+          categories: ["health", "nutrition"],
+          metadata: {}
+        },
+        timestamp: new Date(),
+        url: "https://example.com/source2",
+        confidence: 0.75,
+        categories: ["health"],
+        metadata: {}
+      }
     ],
     sources: [
-      { title: "Effects of Cocoa on Cardiovascular Health - NIH", url: "https://example.com/source1" },
-      { title: "Dietary Guidelines - American Heart Association", url: "https://example.com/source2" }
+      {
+        id: "nih",
+        name: "Effects of Cocoa on Cardiovascular Health - NIH",
+        type: SourceType.REFERENCE,
+        reliability: ReliabilityLevel.VERIFIED,
+        url: "https://example.com/source1",
+        lastVerified: new Date(),
+        verificationStatus: VerificationStatus.VERIFIED,
+        categories: ["health", "research"],
+        metadata: {}
+      },
+      {
+        id: "aha",
+        name: "Dietary Guidelines - American Heart Association",
+        type: SourceType.REFERENCE,
+        reliability: ReliabilityLevel.VERIFIED,
+        url: "https://example.com/source2",
+        lastVerified: new Date(),
+        verificationStatus: VerificationStatus.VERIFIED,
+        categories: ["health", "nutrition"],
+        metadata: {}
+      }
     ],
+    timestamp: new Date(),
+    explanation: "Multiple scientific studies contradict this claim. While dark chocolate contains some beneficial compounds, daily consumption does not prevent heart disease.",
+    metadata: {
+      isTemporalClaim: false,
+      isFactualClaim: true,
+      isPredictiveClaim: false,
+      categories: ["health", "nutrition"],
+      contradictionRatio: 0.8,
+      evidenceScores: [0.82, 0.75]
+    },
     rebuttal: "While dark chocolate contains flavanols that may have some cardiovascular benefits, claiming it 'prevents heart disease' is misleading. The sugar and fat content in chocolate can actually contribute to heart problems if consumed in excess.",
     modelVerdicts: {
       bart: {

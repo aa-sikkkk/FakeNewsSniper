@@ -32,7 +32,7 @@ export default function Debug() {
     
     setIsLoading(true)
     try {
-      const result = await verifyClaimWithNLI(query, evidence)
+      const result = await verifyClaimWithNLI(query)
       
       setModelOutputs(prev => [
         {
@@ -109,9 +109,11 @@ export default function Debug() {
       ])
       
       // If we have results, set the first one as evidence for convenience
-      if (results.titles.length > 0) {
-        const article = await getWikipediaArticle(results.titles[0])
-        setEvidence(article.content)
+      if (results.results.length > 0) {
+        const article = await getWikipediaArticle(results.results[0].title)
+        if (article) {
+          setEvidence(article.content)
+        }
       }
     } catch (error) {
       console.error("Error searching Wikipedia:", error)
