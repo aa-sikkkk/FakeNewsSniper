@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useCallback } from "react"
-import { verifyClaimComprehensive, VerificationResult } from "@/lib/verify-claim"
+import { verifyClaimComprehensive } from "@/lib/verify-claim"
+import { VerificationResult } from "@/lib/verification-pipeline"
 
 export function useVerification() {
   const [isVerifying, setIsVerifying] = useState(false)

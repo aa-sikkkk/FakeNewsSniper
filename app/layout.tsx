@@ -20,6 +20,9 @@ export const metadata: Metadata = {
   description: 'AI-powered fact checking and evidence retrieval',
 };
 
+// Force dynamic rendering to handle Supabase auth cookies
+export const dynamic = 'force-dynamic';
+
 export default async function RootLayout({
   children,
 }: {

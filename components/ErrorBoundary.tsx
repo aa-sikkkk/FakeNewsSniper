@@ -32,7 +32,7 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div className="min-h-[400px] flex items-center justify-center p-4">
-          <Alert variant="destructive\" className="max-w-lg">
+          <Alert variant="destructive" className="max-w-lg">
             <AlertTitle>Something went wrong</AlertTitle>
             <AlertDescription className="mt-2">
               <p className="mb-4">

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
-import { VerificationStatus } from "@/lib/verification-pipeline"
+import { VerificationStatus } from "@/lib/verification-types"
 import { getVerdictDisplay } from "../lib/verify-claim"
 
 interface LiveConfidenceMeterProps {
