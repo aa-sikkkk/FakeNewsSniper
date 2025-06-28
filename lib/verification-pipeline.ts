@@ -7,6 +7,7 @@ import { verifyClaimWithOpenAI } from './openai';
 import { queryGoogleFactCheck, FactCheckResult } from './google-factcheck';
 import { VerificationStatus } from './verification-types';
 import { verifyClaimWithGemini, GeminiVerificationResult } from './gemini';
+import { HuggingFaceVerification } from './types';
 
 export interface VerificationResult {
   claim: string;
@@ -78,6 +79,95 @@ export class VerificationPipeline {
     // this.factCheckService = new FactCheckService();
   }
 
+  private extractPersonName(claim: string): string {
+    // Extract person name from claims like "Is Donald Trump the president of USA?"
+    
+    // Simple pattern for "Is [Name] the [Position] of [Country]?"
+    const pattern = /is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*?)\s+the\s+(?:president|prime minister|chancellor)/i;
+    const match = claim.match(pattern);
+    if (match && match[1]) {
+      return match[1].trim();
+    }
+    
+    // Pattern for "[Name] is the [Position] of [Country]"
+    const pattern2 = /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*?)\s+is\s+the\s+(?:president|prime minister|chancellor)/i;
+    const match2 = claim.match(pattern2);
+    if (match2 && match2[1]) {
+      return match2[1].trim();
+    }
+    
+    // Fallback: extract capitalized words that might be names
+    const words = claim.split(/\s+/);
+    const potentialNames = words.filter(word => 
+      /^[A-Z][a-z]+$/.test(word) && 
+      !['Is', 'The', 'Of', 'In', 'And', 'Or', 'But', 'A', 'An', 'President', 'Prime', 'Minister', 'Chancellor', 'USA', 'United', 'States'].includes(word)
+    );
+    
+    // Take only the first 2 words as a name (most names are 1-2 words)
+    return potentialNames.slice(0, 2).join(' ');
+  }
+
+  private verifyPoliticalPositionClaim(claim: string, content: string, personName: string): boolean {
+    const lowerContent = content.toLowerCase();
+    const lowerClaim = claim.toLowerCase();
+    const lowerPersonName = personName.toLowerCase();
+    
+    console.log('[VerificationPipeline] Verifying political position claim:', {
+      personName: lowerPersonName,
+      claim: lowerClaim,
+      contentLength: content.length
+    });
+    
+    // Check if the person is mentioned in the content (handle partial matches)
+    const personNameWords = lowerPersonName.split(/\s+/);
+    const hasPersonName = personNameWords.every(word => lowerContent.includes(word));
+    
+    if (!hasPersonName) {
+      console.log('[VerificationPipeline] Person name not found in content. Looking for:', personNameWords);
+      console.log('[VerificationPipeline] Content preview:', lowerContent.substring(0, 200));
+      return false;
+    }
+    
+    console.log('[VerificationPipeline] Person name found in content');
+    
+    // Check for current position indicators
+    const currentPositionPatterns = [
+      /current.*president/i,
+      /president.*of.*united.*states/i,
+      /current.*prime.*minister/i,
+      /current.*chancellor/i,
+      /\d{4}.*presidential.*election.*won/i,
+      /won.*\d{4}.*election/i,
+      /inaugurated.*\d{4}/i,
+      /current.*tenure/i,
+      /\d+th.*president/i  // Add this pattern for "47th president"
+    ];
+    
+    // Check if any current position pattern matches
+    const hasCurrentPosition = currentPositionPatterns.some(pattern => {
+      const matches = pattern.test(lowerContent);
+      console.log('[VerificationPipeline] Pattern check:', { pattern: pattern.source, matches });
+      return matches && hasPersonName;
+    });
+    
+    // Check for specific position mentions near the person's name
+    const positionKeywords = ['president', 'prime minister', 'chancellor'];
+    const hasPositionMention = positionKeywords.some(position => {
+      const hasPosition = lowerContent.includes(position) && hasPersonName;
+      console.log('[VerificationPipeline] Position keyword check:', { position, hasPosition });
+      return hasPosition;
+    });
+    
+    const result = hasCurrentPosition || hasPositionMention;
+    console.log('[VerificationPipeline] Final verification result:', {
+      hasCurrentPosition,
+      hasPositionMention,
+      result
+    });
+    
+    return result;
+  }
+
   public async verifyClaim(claim: string): Promise<VerificationResult> {
     try {
       // First, gather all evidence
@@ -98,30 +188,45 @@ export class VerificationPipeline {
         let determinedConfidence = 0.95; // Default for general current event + Wikipedia
         let categories = ['current-events'];
 
-        // Check for the specific "Donald Trump is current US president" case
-        const isTrumpPresidencyClaim = 
-          lowerClaim.includes('donald trump') &&
-          (lowerClaim.includes('president')) &&
-          (lowerClaim.includes('usa') || lowerClaim.includes('united states') || lowerClaim.includes('u.s.')) &&
-          (lowerClaim.includes('current') || lowerClaim.includes('now') || lowerClaim.includes('present'));
+        // Check for current political position claims (president, prime minister, etc.)
+        const isCurrentPoliticalClaim = 
+          (lowerClaim.includes('president') || lowerClaim.includes('prime minister') || lowerClaim.includes('chancellor')) &&
+          (lowerClaim.includes('usa') || lowerClaim.includes('united states') || lowerClaim.includes('u.s.') || 
+           lowerClaim.includes('uk') || lowerClaim.includes('united kingdom') || lowerClaim.includes('germany') ||
+           lowerClaim.includes('france') || lowerClaim.includes('canada') || lowerClaim.includes('australia')) &&
+          (lowerClaim.includes('current') || lowerClaim.includes('now') || lowerClaim.includes('present') || 
+           lowerClaim.includes('is') || lowerClaim.includes('president of'));
 
-        if (isTrumpPresidencyClaim) {
-          categories = ['current-events', 'politics', 'us-presidency'];
-          // More specific check for supporting evidence for Trump's presidency
-          actualSupportsClaim = 
-            content.includes('donald trump') &&
-            (
-              (content.includes('current') && content.includes('president')) || // e.g. "current president"
-              content.includes('47th president') ||
-              content.includes('inaugurated on january 20, 2025') || 
-              content.includes('current tenure as the president') ||
-              (content.includes('president of the united states') && (content.includes('began') || content.includes('tenure') || content.includes('inauguration')))
-            );
+        console.log('[VerificationPipeline] Current political claim detection:', {
+          claim: lowerClaim,
+          isCurrentPoliticalClaim,
+          hasPoliticalPosition: lowerClaim.includes('president') || lowerClaim.includes('prime minister') || lowerClaim.includes('chancellor'),
+          hasCountry: lowerClaim.includes('usa') || lowerClaim.includes('united states') || lowerClaim.includes('u.s.') || 
+                     lowerClaim.includes('uk') || lowerClaim.includes('united kingdom') || lowerClaim.includes('germany') ||
+                     lowerClaim.includes('france') || lowerClaim.includes('canada') || lowerClaim.includes('australia'),
+          hasCurrent: lowerClaim.includes('current') || lowerClaim.includes('now') || lowerClaim.includes('present') || 
+                     lowerClaim.includes('is') || lowerClaim.includes('president of')
+        });
+
+        if (isCurrentPoliticalClaim) {
+          categories = ['current-events', 'politics'];
+          
+          // Extract the person's name from the claim
+          const personName = this.extractPersonName(claim);
+          console.log('[VerificationPipeline] Extracted person name:', personName);
+          
+          // Check if the Wikipedia content supports the claim
+          actualSupportsClaim = this.verifyPoliticalPositionClaim(claim, content, personName);
+          
+          console.log('[VerificationPipeline] Political position verification:', {
+            personName,
+            actualSupportsClaim,
+            contentPreview: content.substring(0, 200) + '...'
+          });
           
           if (actualSupportsClaim) {
-            determinedConfidence = 0.98; // Higher confidence for this specific verified case
+            determinedConfidence = 0.98; // High confidence for verified political positions
           } else {
-            // If specific checks for Trump fail, it implies contradiction or lack of support
             determinedConfidence = 0.95; 
           }
         } else {
@@ -206,13 +311,12 @@ export class VerificationPipeline {
 
       const [openAIResult, huggingFaceResult] = await Promise.all(aiPromises);
 
-      const aiResults: { result: AIVerificationResult; weight: number }[] = [
+      const aiResults: { result: HuggingFaceVerification; weight: number }[] = [
         {
           result: {
             score: openAIResult.score,
             evidence: openAIResult.evidence || 'OpenAI did not provide detailed reasoning.',
             label: openAIResult.label || 'neutral',
-            aiConfidence: (openAIResult as any).aiConfidence !== undefined ? (openAIResult as any).aiConfidence : 1.0,
           },
           // Ensure this.weights.openai is correctly defined and accessed
           weight: this.weights.openai !== undefined ? this.weights.openai : 0.5, 
@@ -222,7 +326,6 @@ export class VerificationPipeline {
             score: huggingFaceResult.score,
             evidence: huggingFaceResult.evidence || 'HuggingFace NLI did not provide detailed reasoning.',
             label: huggingFaceResult.label || 'neutral',
-            aiConfidence: (huggingFaceResult as any).aiConfidence !== undefined ? (huggingFaceResult as any).aiConfidence : 1.0,
           },
           // Ensure this.weights.huggingface is correctly defined and accessed
           weight: this.weights.huggingface !== undefined ? this.weights.huggingface : 0.2, 
@@ -235,7 +338,6 @@ export class VerificationPipeline {
             score: geminiResult.score,
             evidence: geminiResult.evidence,
             label: geminiResult.label,
-            aiConfidence: geminiResult.aiConfidence !== undefined ? geminiResult.aiConfidence : 1.0,
           },
           // Ensure this.weights.gemini is correctly defined and accessed
           weight: this.weights.gemini !== undefined ? this.weights.gemini : 0.3, 
@@ -248,12 +350,12 @@ export class VerificationPipeline {
       // Log all AI results that will be used for weighted scoring
       console.log('[VerificationPipeline] Final AI Results for weighted scoring (before calculating final score):', JSON.stringify(aiResults, null, 2));
 
-      // Calculate weighted average, factoring in AI's own confidence
-      const totalWeight = aiResults.reduce((sum, item) => sum + (item.weight * item.result.aiConfidence), 0);
+      // Calculate weighted average
+      const totalWeight = aiResults.reduce((sum, item) => sum + item.weight, 0);
       const weightedScore = totalWeight > 0 
         ? aiResults.reduce((sum, { result, weight }) => 
-            sum + (result.score * weight * result.aiConfidence), 0) / totalWeight
-        : 0; // Avoid division by zero if all aiConfidence is 0
+            sum + (result.score * weight), 0) / totalWeight
+        : 0; // Avoid division by zero
       
       console.log('[VerificationPipeline] Total Weight for scoring:', totalWeight);
       console.log('[VerificationPipeline] Final Weighted Score:', weightedScore);
@@ -269,18 +371,14 @@ export class VerificationPipeline {
       }
 
       // Use the explanation from the AI result with the highest score (our normalized 0-1 score)
-      // If multiple have the same highest score, prefer the one with higher aiConfidence.
       const bestResult = aiResults.length > 0 
         ? aiResults.reduce((best, current) => {
             if (current.result.score > best.result.score) {
               return current;
             }
-            if (current.result.score === best.result.score && current.result.aiConfidence > best.result.aiConfidence) {
-              return current;
-            }
             return best;
           }).result
-        : { score: 0, evidence: 'No AI verification results available.', label: 'neutral', aiConfidence: 0 };
+        : { score: 0, evidence: 'No AI verification results available.', label: 'neutral' };
 
       // Add Gemini LLM evidence if present
       let allEvidence = [...evidenceResult.evidence];
@@ -463,16 +561,15 @@ export class VerificationPipeline {
         score: result.score,
         evidence: result.evidence,
         label: result.label,
-        aiConfidence: result.aiConfidence // Ensure aiConfidence is returned
+        aiConfidence: result.aiConfidence
       };
     } catch (error) {
-      console.error('Error verifying with Gemini:', error);
+      console.error('Error in verifyWithGemini:', error);
       return {
-        score: 0.5,
-        evidence: 'Error verifying with Gemini. ' + 
-                 (error instanceof Error ? error.message : String(error)),
+        score: 0,
+        evidence: 'Gemini verification failed.',
         label: 'neutral',
-        aiConfidence: 0 // Default low confidence on error
+        aiConfidence: 0
       };
     }
   }
