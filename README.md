@@ -1,4 +1,6 @@
 # 🎯 Fake News Sniper
+<img width="150" height="150" src="https://github.com/user-attachments/assets/ba224175-2846-4621-91fd-2b2a6658bcc8">
+
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -9,7 +11,7 @@
 > 🌍 **Building a Peaceful and Informed Society**  
 > 🚀 **One Fact Check at a Time**
 
-## 🌍 The Problem We're Solving
+## 🌍 The Problem I'm trying to solve
 
 ### The Misinformation Crisis
 
