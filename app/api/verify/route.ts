@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { migrationLayer } from '@/lib/migration-layer';
 import { queryGoogleFactCheck } from '@/lib/google-factcheck';
-import { VerificationStatus as VerificationPipelineStatus, VerificationResult } from '@/lib/verification-pipeline';
-import { SourceType, ReliabilityLevel, VerificationStatus as SourceVerificationStatus } from '@/lib/source-reliability';
+import { VerificationResult } from '@/lib/verification-pipeline';
+import { VerificationStatus } from '@/lib/verification-types';
+import { SourceType, ReliabilityLevel } from '@/lib/source-reliability';
 import { evidenceGatherer } from '@/lib/evidence-gatherer';
 
 export async function POST(request: Request) {
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     // Create verification result
     const result: VerificationResult = {
       claim,
-      status: VerificationPipelineStatus.UNVERIFIED,
+      status: VerificationStatus.UNVERIFIED,
       confidence: 0,
       evidence: [],
       sources: [],
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
         
         // Update the verification result with fact check information
         const normalizedRating = latestReview.textualRating.toLowerCase();
-        let status: VerificationPipelineStatus;
+        let status: VerificationStatus;
         
         // Extract the first word of the rating (before any period or additional text)
         const firstWord = normalizedRating.split(/[.\s]/)[0];
@@ -48,15 +48,15 @@ export async function POST(request: Request) {
         
         // Check for false claims first
         if (firstWord === 'false' || normalizedRating.includes('incorrect') || normalizedRating.includes('wrong')) {
-          status = VerificationPipelineStatus.FALSE;
+          status = VerificationStatus.FALSE;
           result.confidence = 0.95; // High confidence for false claims
           result.explanation = `This claim has been fact-checked and found to be FALSE by ${latestReview.publisher?.name || 'Unknown'}. According to the review: "${latestReview.title}". This is a high-confidence verification based on professional fact-checking.`;
         } else if (firstWord === 'true' || normalizedRating.includes('correct') || normalizedRating.includes('verified')) {
-          status = VerificationPipelineStatus.VERIFIED;
+          status = VerificationStatus.VERIFIED;
           result.confidence = 0.95; // High confidence for verified claims
           result.explanation = `This claim has been fact-checked and verified as TRUE by ${latestReview.publisher?.name || 'Unknown'}. According to the review: "${latestReview.title}". This is a high-confidence verification based on professional fact-checking.`;
         } else {
-          status = VerificationPipelineStatus.DISPUTED;
+          status = VerificationStatus.DISPUTED;
           result.confidence = 0.7; // Lower confidence for disputed claims
           result.explanation = `This claim has been fact-checked and found to be DISPUTED by ${latestReview.publisher?.name || 'Unknown'}. According to the review: "${latestReview.title}".`;
         }
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
             reliability: ReliabilityLevel.VERIFIED,
             url: latestReview.url,
             lastVerified: new Date(),
-            verificationStatus: SourceVerificationStatus.VERIFIED,
+            verificationStatus: VerificationStatus.VERIFIED,
             categories: ['fact-checking'],
             metadata: {
               isFactChecker: true
@@ -100,7 +100,7 @@ export async function POST(request: Request) {
           reliability: ReliabilityLevel.VERIFIED,
           url: latestReview.url,
           lastVerified: new Date(),
-          verificationStatus: SourceVerificationStatus.VERIFIED,
+          verificationStatus: VerificationStatus.VERIFIED,
           categories: ['fact-checking'],
           metadata: {
             isFactChecker: true
@@ -131,4 +131,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-} 
+}
